@@ -37,7 +37,7 @@ Grok Bot is good at planning, writing and follow-through. Local agents are good 
 ## Install
 
 ```sh
-npm install -g github:anup-a/grok-bot-bridge
+npm install -g https://github.com/anup-a/grok-bot-bridge/tarball/main
 gbb setup
 ```
 
@@ -185,7 +185,7 @@ npm install
 npm test        # builds, then runs node:test against a local fake webhook and fake agents
 ```
 
-`dist/` is committed so `npm install -g github:anup-a/grok-bot-bridge` works without a build step. Run `npm run build` and commit `dist/` with source changes.
+`dist/` is committed so installing from the GitHub tarball works without a build step. Run `npm run build` and commit `dist/` with source changes.
 
 ## License
 
