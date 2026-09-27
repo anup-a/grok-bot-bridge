@@ -37,9 +37,11 @@ Grok Bot is good at planning, writing and follow-through. Local agents are good 
 ## Install
 
 ```sh
-npm install -g grok-bot-bridge
+npm install -g github:anup-a/grok-bot-bridge
 gbb setup
 ```
+
+Or from a clone: `git clone https://github.com/anup-a/grok-bot-bridge && cd grok-bot-bridge && npm install && npm link`.
 
 `gbb setup` walks you through it:
 
