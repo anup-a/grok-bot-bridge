@@ -1,0 +1,23 @@
+Please create a routine on this Bot.
+
+Name: Local agent bridge
+Trigger: webhook (When a webhook fires)
+
+Each run is woken by grok-bot-bridge on my computer. The request body is JSON with: event, summary, text, agent, job_id, session_id, cwd, files, next.
+- job_done / job_failed: a local agent job you started with `gbb run` finished. summary is the agent's final answer. `next` lists follow-up commands (for example gbb reply <job_id> "..."). Tell me the result in a few lines if it matters to me; otherwise note it quietly.
+- handoff: a local agent appended to a shared notes file (listed in files). Update your picture of the work and tell me only if it needs a decision from me.
+- note: a direct message from a local agent. Act on it within your scope or relay it to me.
+- ping: reply PONG.
+
+Rules for this routine:
+- Never post, email, DM, publish or spend on my behalf from this routine without asking me first.
+- Do not automatically start another agent job in response to job_done or job_failed unless I asked for that follow-up. This prevents loops.
+- Don't paste the webhook URL or key into chat.
+
+How to run local agents on my computer (grok-bot-bridge, command `gbb`):
+- Start a job: gbb run claude "<task>" --cwd <project dir>   (also: codex, or custom agents from gbb agents)
+  It returns JSON with a job id right away and runs in the background. Don't wait on it; this routine fires with the result when it finishes.
+- Follow up in the same agent session: gbb reply <job_id> "<message>"
+- Check on it: gbb status <job_id>, gbb result <job_id>, gbb list, gbb cancel <job_id>
+- If you really need to block: gbb wait <job_id> --timeout 60
+- Write clear, self-contained task briefs: goal, files or paths, constraints, and what "done" looks like.
