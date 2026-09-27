@@ -185,6 +185,8 @@ npm install
 npm test        # builds, then runs node:test against a local fake webhook and fake agents
 ```
 
+`dist/` is committed so `npm install -g github:anup-a/grok-bot-bridge` works without a build step. Run `npm run build` and commit `dist/` with source changes.
+
 ## License
 
 MIT
