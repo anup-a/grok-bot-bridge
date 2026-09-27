@@ -2,16 +2,21 @@
 
 Two-way bridge between **Grok Bot** and the coding agents on your computer (Claude Code, Codex, or any CLI agent).
 
-- **Your Bot → agents.** Grok Bot starts a local agent job (`gbb run claude "..."`), gets a job id right away, and is woken with the result when the job finishes. It can keep the conversation going in the same agent session (`gbb reply`).
+- **Talk to any of your Bots from the terminal or from an agent.** `gbb ask Health "How did I sleep?"` prints Health's answer. Claude Code can do the same with the included skill ("ask my Growth bot what to prioritize").
+- **Your Bots → agents.** Grok Bot starts a local agent job (`gbb run claude "..."`), gets a job id right away, and is woken with the result when the job finishes. It can keep the conversation going in the same agent session (`gbb reply`).
 - **Agents → your Bot.** Agents ping your Bot through a webhook routine: job results, notes, and "handoffs" (new text appended to a shared notes file such as `HANDOFF.md`).
 
 ```
-            gbb run / reply / status                     (runs on your computer through
-  Grok Bot ───────────────────────────────▶  gbb  ────▶   Claude Code, Codex, custom CLIs)
-     ▲                                        │
-     │   webhook routine: job_done, job_failed, handoff, note, ping
-     └────────────────────────────────────────┘
+  Health   Growth   Investing ...          your other Bots
+      ▲       ▲        ▲
+      └───────┼────────┘  Bot-to-Bot messages (built into Grok Bot)
+              │
+           Bridge  ◀── webhook routine: ask, note, job_done, handoff ──┐
+              │                                                        │
+              └── runs gbb on your computer: answer, run, reply ──▶  gbb  ──▶ Claude Code, Codex, CLIs
 ```
+
+You connect **one** dedicated Bot, "Bridge", and every other Bot becomes reachable through it. Grok Bot already lets Bots message each other, and a Bot with computer access can run `gbb`. So Bridge relays in both directions, and nothing else needs setting up per Bot.
 
 > Unofficial community project. Not affiliated with or endorsed by xAI, Anysphere, Anthropic or OpenAI.
 
@@ -38,13 +43,33 @@ gbb setup
 
 `gbb setup` walks you through it:
 
-1. It prints a message (and copies it to your clipboard on macOS). Send it to your Bot in Grok Bot. The Bot creates a routine named **Local agent bridge** with a webhook trigger, and learns the `gbb` commands.
+1. In Grok Bot, click **+**, then **Create new Bot**. Send the new Bot the message gbb prints (it's also copied to your clipboard on macOS). The Bot renames itself **Bridge**, creates a routine named **Local agent bridge** with a webhook trigger, checks it can run `gbb` on your computer, and checks it can reach another Bot.
 2. Open the routine's panel (click the "Created routine" chip in the chat) and copy the **Webhook URL** and **key**. Paste them into `gbb setup`.
-3. gbb sends a test ping. Your Bot replies PONG in its chat.
+3. gbb sends a test ping.
 
-Non-interactive: `gbb setup --bot growth --url https://... --key ...`
+Then try it:
+
+```sh
+gbb ask Health "How did I sleep last night?"
+gbb install skill      # optional: lets Claude Code talk to your Bots too
+```
+
+Non-interactive: `gbb setup --bot bridge --hub --url https://... --key ...`. To connect a Bot directly (its own routine, no hub), run `gbb setup --bot growth` and use `--bot growth`.
 
 Credentials are stored in the macOS Keychain (service `grok-bot-bridge`). On other systems they go to `~/.grok-bot-bridge/credentials.json` with `0600` permissions. You can also use `GBB_WEBHOOK_URL` and `GBB_WEBHOOK_KEY`.
+
+## Talk to any Bot
+
+```sh
+gbb ask Growth "What's the one thing I should ship this week?"   # waits for the answer (default 180s)
+gbb ask Investing "Anything I need to act on today?" --wait 0    # don't wait; read it later
+gbb inbox                                                        # recent questions and answers
+gbb tell Health "Logged a 30 minute walk"                        # one-way message
+```
+
+How it works: gbb sends an `ask` event to Bridge with a message id. Bridge asks the Bot named in `to`, then runs `gbb answer <id>` on your computer to deliver the reply, and `gbb ask` prints it. A round trip usually takes 30 to 90 seconds.
+
+**Claude Code:** `gbb install skill` adds a `grok-bots` skill, so "ask my Health bot how I slept" works inside Claude Code.
 
 ## Bot → agents
 
@@ -62,7 +87,7 @@ gbb cancel jmujpg0qjfc1d
 gbb list
 ```
 
-When a job finishes, the Bot's routine fires with a `job_done` or `job_failed` event that carries the agent's final answer and the follow-up commands.
+When a job finishes, the Bot's routine fires with a `job_done` or `job_failed` event that carries the agent's final answer and the follow-up commands. Add `--for <Bot>` and Bridge forwards the result to that Bot.
 
 Pass extra flags to the agent after `--`:
 
@@ -113,7 +138,7 @@ Every webhook request is `POST` with `Authorization: Bearer <key>` and a JSON bo
 }
 ```
 
-Events: `job_done`, `job_failed`, `handoff`, `note`, `ping`. `text` is a human-readable version of the same data.
+Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_done`, `job_failed` (with `reply_to` when started with `--for`), `handoff`, `ping`. `text` is a human-readable version of the same data.
 
 ## Configuration
 
@@ -135,6 +160,7 @@ Events: `job_done`, `job_failed`, `handoff`, `note`, `ping`. `text` is a human-r
 
 | Key | Meaning |
 | --- | --- |
+| `hubBot` | The connected Bot that relays `ask`/`tell` to other Bots. Set by `gbb setup --hub`. |
 | `allowedRoots` | `gbb run` refuses working directories outside these roots. Unset means any directory. |
 | `maxPerHour` | Webhook sends allowed per bot per rolling hour. This guards against loops. |
 | `watch` | Files whose appended text is sent as `handoff`. Manage with `gbb watch`. |
@@ -155,6 +181,8 @@ Jobs live in `~/.grok-bot-bridge/jobs/<id>/` (`job.json`, `stdout.log`, `stderr.
 - The routine message also tells the Bot never to post, email, DM, publish or spend from a routine run without asking you.
 
 ## FAQ
+
+**Why a dedicated Bridge Bot?** A routine belongs to one Bot, and creating one means chatting with that Bot and copying a URL and key. With a hub you do that once. A dedicated Bot also keeps relay traffic out of your other chats and gives the bridge its own permissions. Chief of Staff can play the same role if you prefer.
 
 **Why a CLI and not an MCP server?** Grok Bot runs local (stdio) MCP servers on its own cloud machine, not on your computer, so an MCP server there can't start your local agents. The Bot already reaches your computer through its computer-use tool, and the CLI works through that today.
 

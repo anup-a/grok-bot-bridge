@@ -25,6 +25,8 @@ export interface Job {
   sessionId?: string;
   resumeSessionId?: string;
   parentId?: string;
+  /** Bot that asked for this job; the hub forwards the result to it. */
+  replyTo?: string;
   timeoutSec?: number;
   extraArgs: string[];
   result?: string;
@@ -68,6 +70,7 @@ export interface StartOptions {
   extraArgs?: string[];
   resumeSessionId?: string;
   parentId?: string;
+  replyTo?: string;
 }
 
 /** Create a job and launch a detached worker. Returns immediately. */
@@ -95,6 +98,7 @@ export function startJob(opts: StartOptions): Job {
     extraArgs: [...(cfg.agents[adapter.name]?.args ?? []), ...(opts.extraArgs ?? [])],
     resumeSessionId: opts.resumeSessionId,
     parentId: opts.parentId,
+    replyTo: opts.replyTo,
   };
   ensureDir(jobDir(job.id));
   saveJob(job);
@@ -123,6 +127,7 @@ export function replyToJob(id: string, message: string, opts: Omit<StartOptions,
     extraArgs: opts.extraArgs,
     resumeSessionId: parent.sessionId,
     parentId: parent.id,
+    replyTo: opts.replyTo ?? parent.replyTo,
   });
 }
 
@@ -242,6 +247,7 @@ export async function runWorker(id: string): Promise<void> {
       prompt: job.prompt.length > 300 ? job.prompt.slice(0, 300) + "..." : job.prompt,
       duration_sec: job.startedAt ? Math.round((Date.parse(job.finishedAt!) - Date.parse(job.startedAt)) / 1000) : undefined,
       parent_job_id: job.parentId,
+      reply_to: job.replyTo,
       next,
     }),
     { bot: job.bot },

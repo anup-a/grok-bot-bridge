@@ -9,32 +9,44 @@ import {
   expandHome,
   getCredentials,
   homeDir,
+  hubBot,
   listBots,
   loadConfig,
   rememberBot,
   saveConfig,
   setCredentials,
 } from "./config.js";
-import { agentInstructions, routinePrompt } from "./grok.js";
+import { agentInstructions, bridgeBotPrompt, routinePrompt } from "./grok.js";
 import { collectAppended, handleHook, installClaudeHook, installCodexNotify, uninstallClaudeHook } from "./hooks.js";
 import { cancelJob, isTerminal, jobDir, listJobs, loadJob, replyToJob, runWorker, startJob, waitForJob, type Job } from "./jobs.js";
-import { buildPayload, logFile, send, VERSION, type Payload } from "./webhook.js";
+import { installClaudeSkill } from "./skill.js";
+import { answerMessage, listMessages, loadMessage, newMessage, waitForAnswer } from "./messages.js";
+import { buildPayload, send, VERSION, type Payload } from "./webhook.js";
 
 const HELP = `grok-bot-bridge ${VERSION}: two-way bridge between Grok Bot and local coding agents
 
 Setup
-  gbb setup [--bot NAME] [--url URL --key KEY]   connect a Grok Bot webhook routine (prints the chat message to create it)
-  gbb prompt                                      print the message that asks your Bot to create the routine
+  gbb setup [--bot NAME] [--hub] [--url URL --key KEY]
+                                                  connect a Bot's webhook routine (prints the chat message to create it).
+                                                  Connect Chief of Staff as the hub to reach all your Bots.
+  gbb prompt [--bridge]                           print the setup message (--bridge: for a new dedicated Bridge Bot)
   gbb install claude | codex                      notify the Bot when agents append to watched files
+  gbb install skill                               Claude Code skill: "ask my Health bot ..." just works
   gbb watch add|rm|list [FILE]                    files whose new text is sent as a "handoff" event
   gbb doctor                                      check config, credentials and agent CLIs
 
+Talk to any Bot (through your hub Bot, e.g. Chief of Staff)
+  gbb ask BOT "question" [--wait SEC]             ask a Bot and print its answer here (default wait 180s)
+  gbb tell BOT "message"                          send a Bot a message, no answer expected
+  gbb inbox [MESSAGE]                             recent questions and answers
+  gbb answer MESSAGE "text" | -                   (run by the hub Bot) deliver an answer
+
 Agent -> Grok Bot
-  gbb notify "text" [--event note] [--file PATH]  send a message to the Bot (text from stdin if omitted)
+  gbb notify "text" [--event note] [--file PATH]  send a message to the connected Bot itself
   gbb ping                                        send a test event
 
 Grok Bot -> agent (the Bot runs these on your computer)
-  gbb run AGENT "task" [--cwd DIR] [--timeout SEC] [--no-notify] [-- AGENT_ARGS...]
+  gbb run AGENT "task" [--cwd DIR] [--for BOT] [--timeout SEC] [--no-notify] [-- AGENT_ARGS...]
                                                   start a background job, print its id, report back when done
   gbb reply JOB "message"                         continue that job's agent session
   gbb status JOB | result JOB | wait JOB [--timeout SEC] | cancel JOB
@@ -52,7 +64,7 @@ interface Parsed {
   rest: string[];
 }
 
-const VALUE_FLAGS = new Set(["cwd", "bot", "timeout", "event", "file", "url", "key", "limit"]);
+const VALUE_FLAGS = new Set(["cwd", "bot", "timeout", "event", "file", "url", "key", "limit", "for", "wait"]);
 
 function parse(argv: string[]): Parsed {
   const out: Parsed = { pos: [], flags: {}, multi: {}, rest: [] };
@@ -133,20 +145,27 @@ function copyToClipboard(text: string): boolean {
 
 async function setup(p: Parsed): Promise<number> {
   const cfg = loadConfig();
-  const bot = str(p.flags.bot) ?? (cfg.bots?.length ? cfg.defaultBot : "default");
+  // First setup (or --hub) connects a dedicated Bridge Bot that relays to all your other Bots.
+  const bridgeMode = Boolean(p.flags.hub) || !(cfg.bots?.length);
+  const bot = str(p.flags.bot) ?? (bridgeMode ? "bridge" : cfg.defaultBot);
+  if (bridgeMode) p.flags.hub = true;
   let url = str(p.flags.url);
   let key = str(p.flags.key);
 
   if (!url || !key) {
-    const prompt = routinePrompt();
-    console.log("Step 1. Send this message to your Grok Bot (in the chat of the Bot you want to connect):\n");
+    const prompt = bridgeMode ? bridgeBotPrompt() : routinePrompt();
+    console.log(
+      bridgeMode
+        ? 'Step 1. In Grok Bot, click "+" then "Create new Bot", and send the new Bot this message.\n        It becomes "Bridge", your hub for talking to every other Bot:\n'
+        : `Step 1. Send this message to the Bot you want to connect as "${bot}":\n`,
+    );
     console.log(prompt.replace(/^/gm, "  "));
     if (copyToClipboard(prompt)) console.log("\n(Copied to clipboard.)");
     console.log(
       `\nStep 2. Open the new routine's panel in Grok Bot (click the "Created routine" chip) and copy the Webhook URL and key.\n`,
     );
     if (!process.stdin.isTTY) {
-      console.log(`Then run: gbb setup --bot ${bot} --url <webhook url> --key <webhook key>`);
+      console.log(`Then run: gbb setup --bot ${bot}${bridgeMode ? " --hub" : ""} --url <webhook url> --key <webhook key>`);
       return 0;
     }
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -159,6 +178,12 @@ async function setup(p: Parsed): Promise<number> {
   const where = setCredentials(bot, { url, key });
   rememberBot(bot);
   console.log(`Saved credentials for bot "${bot}" (${where === "keychain" ? "macOS Keychain" : path.join(homeDir(), "credentials.json")}).`);
+  if (p.flags.hub) {
+    const c = loadConfig();
+    c.hubBot = bot;
+    saveConfig(c);
+    console.log(`"${bot}" is now the hub: gbb ask/tell reach your other Bots through it.`);
+  }
   if (p.flags["no-test"]) return 0;
   const r = await send(buildPayload("ping", "grok-bot-bridge setup test. Reply PONG."), { bot, force: true });
   if (r.ok) console.log(`Test ping delivered (${r.status}). Your Bot should reply PONG in its chat.`);
@@ -208,7 +233,7 @@ async function main(argv: string[]): Promise<number> {
       return setup(p);
 
     case "prompt":
-      console.log(routinePrompt());
+      console.log(p.flags.bridge ? bridgeBotPrompt() : routinePrompt());
       return 0;
 
     case "instructions":
@@ -238,6 +263,7 @@ async function main(argv: string[]): Promise<number> {
         notify: !p.flags["no-notify"],
         timeoutSec: num(p.flags.timeout),
         extraArgs: p.rest,
+        replyTo: str(p.flags.for),
       });
       print({ job_id: job.id, agent: job.agent, status: job.status, cwd: job.cwd, next: [`gbb status ${job.id}`, `gbb wait ${job.id} --timeout 60`] });
       return 0;
@@ -247,8 +273,86 @@ async function main(argv: string[]): Promise<number> {
       const [id, ...words] = args;
       if (!id) throw new Error('usage: gbb reply JOB "message"');
       const message = words.join(" ") || (await readStdin());
-      const job = replyToJob(id, message, { bot, notify: p.flags["no-notify"] ? false : undefined, timeoutSec: num(p.flags.timeout), extraArgs: p.rest });
+      const job = replyToJob(id, message, {
+        bot,
+        notify: p.flags["no-notify"] ? false : undefined,
+        timeoutSec: num(p.flags.timeout),
+        extraArgs: p.rest,
+        replyTo: str(p.flags.for),
+      });
       print({ job_id: job.id, parent_job_id: id, agent: job.agent, status: job.status, session_id: job.resumeSessionId });
+      return 0;
+    }
+
+    case "ask": {
+      const [to, ...words] = args;
+      if (!to) throw new Error('usage: gbb ask BOT "question" [--wait SEC]');
+      const question = words.join(" ") || (await readStdin());
+      if (!question.trim()) throw new Error("question is empty");
+      const hub = bot ?? hubBot();
+      const msg = newMessage(to, question, hub);
+      const r = await send(
+        buildPayload("ask", question, {
+          to,
+          message_id: msg.id,
+          cwd: process.cwd(),
+          agent: process.env.GBB_AGENT,
+          next: [`gbb answer ${msg.id} - <<'EOF'\n<answer>\nEOF`],
+        }),
+        { bot: hub, force: true },
+      );
+      if (!r.ok) throw new Error(`could not reach hub bot "${hub}": ${r.skipped ?? `${r.status ?? ""} ${r.body ?? ""}`}`);
+      const waitSec = num(p.flags.wait) ?? 180;
+      if (waitSec <= 0) {
+        print({ message_id: msg.id, to, status: "sent", next: [`gbb inbox ${msg.id}`] });
+        return 0;
+      }
+      console.error(`Asked ${to} via ${hub} (message ${msg.id}). Waiting up to ${waitSec}s...`);
+      const done = await waitForAnswer(msg.id, waitSec);
+      if (done.answer === undefined) {
+        console.error(`No answer yet. It will land in: gbb inbox ${msg.id}`);
+        return 2;
+      }
+      console.log(done.answer);
+      return 0;
+    }
+
+    case "tell": {
+      const [to, ...words] = args;
+      if (!to) throw new Error('usage: gbb tell BOT "message"');
+      const text = words.join(" ") || (await readStdin());
+      if (!text.trim()) throw new Error("message is empty");
+      const hub = bot ?? hubBot();
+      return reportSend(await send(buildPayload("note", text, { to, cwd: process.cwd(), agent: process.env.GBB_AGENT }), { bot: hub }));
+    }
+
+    case "answer": {
+      const [id, ...words] = args;
+      if (!id) throw new Error('usage: gbb answer MESSAGE "text"   (or: gbb answer MESSAGE - < file)');
+      const text = words.length === 0 || (words.length === 1 && words[0] === "-") ? await readStdin() : words.join(" ");
+      if (!text.trim()) throw new Error("answer is empty");
+      const m = answerMessage(id, text);
+      console.log(`Delivered answer to ${m.id} (question for ${m.to}).`);
+      return 0;
+    }
+
+    case "inbox": {
+      if (args[0]) {
+        const m = loadMessage(args[0]);
+        print(m);
+        return m.answer === undefined ? 2 : 0;
+      }
+      const msgs = listMessages(num(p.flags.limit) ?? 20);
+      if (p.flags.json) {
+        print(msgs);
+        return 0;
+      }
+      if (!msgs.length) console.log("no messages yet");
+      for (const m of msgs) {
+        const state = m.answer === undefined ? "waiting" : "answered";
+        console.log(`${m.id}  ${state.padEnd(8)} ${m.to.padEnd(12)} ${m.askedAt.slice(0, 16).replace("T", " ")}  ${m.question.split("\n")[0].slice(0, 50)}`);
+        if (m.answer) console.log(`    -> ${m.answer.split("\n")[0].slice(0, 100)}`);
+      }
       return 0;
     }
 
@@ -314,9 +418,13 @@ async function main(argv: string[]): Promise<number> {
     }
 
     case "install": {
+      if (args[0] === "skill") {
+        console.log(installClaudeSkill());
+        return 0;
+      }
       if (args[0] === "claude") console.log(installClaudeHook().join("\n"));
       else if (args[0] === "codex") console.log(installCodexNotify().join("\n"));
-      else throw new Error("usage: gbb install claude | codex");
+      else throw new Error("usage: gbb install claude | codex | skill");
       if (!loadConfig().watch.length) console.log('Tip: hooks only fire for watched files. Add one: gbb watch add ./HANDOFF.md');
       return 0;
     }

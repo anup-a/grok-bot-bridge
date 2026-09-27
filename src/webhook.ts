@@ -17,6 +17,10 @@ export interface Payload {
   /** Human-readable rendering, for routines that paste the body into a prompt. */
   text: string;
   agent?: string;
+  /** Target Bot when the receiving Bot acts as a hub. */
+  to?: string;
+  message_id?: string;
+  reply_to?: string;
   job_id?: string;
   session_id?: string;
   cwd?: string;
@@ -52,7 +56,8 @@ export function buildPayload(
   const clean = Object.fromEntries(
     Object.entries(extra).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)),
   );
-  const lines = [`[grok-bot-bridge] ${event}${extra.agent ? ` from ${extra.agent}` : ""}${extra.job_id ? ` (job ${extra.job_id})` : ""}`, "", s];
+  const head = `[grok-bot-bridge] ${event}${extra.to ? ` for ${extra.to}` : ""}${extra.agent ? ` from ${extra.agent}` : ""}${extra.job_id ? ` (job ${extra.job_id})` : ""}`;
+  const lines = [head, "", s];
   if (Array.isArray(clean.files) && clean.files.length) lines.push("", "Files:", ...clean.files.map((f) => `- ${f}`));
   if (Array.isArray(clean.next) && clean.next.length) lines.push("", "Next:", ...clean.next.map((c) => `- ${c}`));
   return { ...base, ...clean, text: lines.join("\n") } as Payload;

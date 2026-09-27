@@ -240,3 +240,39 @@ test("rate limit caps sends per hour", async () => {
   await assert.rejects(gbb(["notify", "3"], { env: e2 }), /rate limit/);
   assert.equal(received.length, 2);
 });
+
+test("ask round-trips through the hub: hub runs gbb answer, asker prints it", async () => {
+  received = [];
+  const asking = gbb(["ask", "Health", "How did I sleep?", "--wait", "30"]);
+  const msg = await waitFor(() => received.find((r) => r.body.event === "ask"));
+  assert.equal(msg.body.to, "Health");
+  assert.equal(msg.body.summary, "How did I sleep?");
+  assert.match(msg.body.message_id, /^m/);
+  assert.match(msg.body.next[0], new RegExp(`gbb answer ${msg.body.message_id}`));
+  // Simulate the hub Bot delivering the answer through stdin (heredoc style).
+  await gbbIn(["answer", msg.body.message_id, "-"], "Score 85, 8h10m.\nHRV 80.\n");
+  const { stdout } = await asking;
+  assert.equal(stdout.trim(), "Score 85, 8h10m.\nHRV 80.");
+  const { stdout: inbox } = await gbb(["inbox", msg.body.message_id]);
+  assert.equal(JSON.parse(inbox).to, "Health");
+});
+
+test("ask times out with exit code 2 and a pointer to the inbox", async () => {
+  await assert.rejects(gbb(["ask", "Investing", "anything?", "--wait", "2"]), (e) => e.code === 2 && /gbb inbox m/.test(e.stderr));
+});
+
+test("tell sends a note addressed to another Bot", async () => {
+  received = [];
+  await gbb(["tell", "Health", "log 30 min walk"]);
+  assert.equal(received[0].body.event, "note");
+  assert.equal(received[0].body.to, "Health");
+  assert.match(received[0].body.text, /note for Health/);
+});
+
+test("run --for tags the result with reply_to", async () => {
+  received = [];
+  const { stdout } = await gbb(["run", "echo", "summarize", "--for", "Growth"]);
+  const { job_id } = JSON.parse(stdout);
+  const msg = await waitFor(() => received.find((r) => r.body.job_id === job_id));
+  assert.equal(msg.body.reply_to, "Growth");
+});

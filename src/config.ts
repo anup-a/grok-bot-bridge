@@ -23,6 +23,8 @@ export interface Config {
   agents: Record<string, AgentConfig>;
   /** Max characters of agent output included in a webhook payload. */
   maxSummaryChars: number;
+  /** Connected Bot that relays `ask`/`tell` to other Bots (defaults to defaultBot). */
+  hubBot?: string;
   /** Names of bots configured via `gbb setup` (credentials live in Keychain or credentials.json). */
   bots?: string[];
 }
@@ -186,4 +188,9 @@ export function safeRealpath(p: string): string {
   } catch {
     return path.resolve(p);
   }
+}
+
+/** The connected Bot that relays messages to other Bots. */
+export function hubBot(cfg = loadConfig()): string {
+  return cfg.hubBot ?? cfg.defaultBot;
 }
