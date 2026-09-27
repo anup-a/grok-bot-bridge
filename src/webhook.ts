@@ -5,7 +5,7 @@ import { ensureDir, getCredentials, homeDir, loadConfig, readJson, writeJsonAtom
 
 export const VERSION = "0.1.0";
 
-export type EventName = "ping" | "note" | "handoff" | "job_started" | "job_done" | "job_failed" | string;
+export type EventName = "ping" | "note" | "ask" | "job_done" | "job_failed" | string;
 
 export interface Payload {
   source: "grok-bot-bridge";

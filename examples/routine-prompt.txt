@@ -14,7 +14,6 @@ EOF
   The answer must go through gbb answer; the asker can't see chat. Keep it direct and complete.
 - note: a message for the Bot in "to" (or for you). Pass it on or act on it. No reply to my computer is needed.
 - job_done / job_failed: a local agent job finished. summary is the agent's final answer. If reply_to names a Bot, send it the result. Otherwise tell me the result in a few lines if it matters. `next` lists follow-up commands.
-- handoff: a local agent appended to a shared notes file (in files). Pass it to the Bot in "to" if set. Tell me only if it needs a decision.
 - ping: reply PONG.
 
 Rules for this routine:

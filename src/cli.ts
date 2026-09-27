@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { knownAgents } from "./agents.js";
@@ -17,11 +16,10 @@ import {
   setCredentials,
 } from "./config.js";
 import { agentInstructions, bridgeBotPrompt, routinePrompt } from "./grok.js";
-import { collectAppended, handleHook, installClaudeHook, installCodexNotify, uninstallClaudeHook } from "./hooks.js";
 import { cancelJob, isTerminal, jobDir, listJobs, loadJob, replyToJob, runWorker, startJob, waitForJob, type Job } from "./jobs.js";
 import { installClaudeSkill } from "./skill.js";
 import { answerMessage, listMessages, loadMessage, newMessage, waitForAnswer } from "./messages.js";
-import { buildPayload, send, VERSION, type Payload } from "./webhook.js";
+import { buildPayload, send, VERSION } from "./webhook.js";
 
 const HELP = `grok-bot-bridge ${VERSION}: two-way bridge between Grok Bot and local coding agents
 
@@ -30,9 +28,7 @@ Setup
                                                   connect a Bot's webhook routine (prints the chat message to create it).
                                                   Connect Chief of Staff as the hub to reach all your Bots.
   gbb prompt [--bridge]                           print the setup message (--bridge: for a new dedicated Bridge Bot)
-  gbb install claude | codex                      notify the Bot when agents append to watched files
   gbb install skill                               Claude Code skill: "ask my Health bot ..." just works
-  gbb watch add|rm|list [FILE]                    files whose new text is sent as a "handoff" event
   gbb doctor                                      check config, credentials and agent CLIs
 
 Talk to any Bot (through your hub Bot, e.g. Chief of Staff)
@@ -207,7 +203,6 @@ function doctor(): number {
     }
     lines.push(`agent ${a}: ${v}`);
   }
-  lines.push(`watch: ${cfg.watch.length ? cfg.watch.join(", ") : "(none)"}`);
   lines.push(`allowedRoots: ${cfg.allowedRoots?.length ? cfg.allowedRoots.join(", ") : "(any directory)"}`);
   lines.push(`rate limit: ${cfg.maxPerHour}/hour per bot`);
   console.log(lines.join("\n"));
@@ -402,45 +397,10 @@ async function main(argv: string[]): Promise<number> {
       console.log(knownAgents(loadConfig().agents).join("\n"));
       return 0;
 
-    case "watch": {
-      const [sub, file] = args;
-      const cfg = loadConfig();
-      if (sub === "add" || sub === "rm") {
-        if (!file) throw new Error(`usage: gbb watch ${sub} FILE`);
-        const abs = path.resolve(expandHome(file));
-        cfg.watch = cfg.watch.filter((f) => path.resolve(expandHome(f)) !== abs);
-        if (sub === "add") cfg.watch.push(abs);
-        saveConfig(cfg);
-        if (sub === "add") collectAppended(cfg.watch); // baseline: existing content is not sent
-      }
-      console.log(cfg.watch.length ? cfg.watch.join("\n") : "(no watched files)");
+    case "install":
+      if (args[0] !== "skill") throw new Error("usage: gbb install skill");
+      console.log(installClaudeSkill());
       return 0;
-    }
-
-    case "install": {
-      if (args[0] === "skill") {
-        console.log(installClaudeSkill());
-        return 0;
-      }
-      if (args[0] === "claude") console.log(installClaudeHook().join("\n"));
-      else if (args[0] === "codex") console.log(installCodexNotify().join("\n"));
-      else throw new Error("usage: gbb install claude | codex | skill");
-      if (!loadConfig().watch.length) console.log('Tip: hooks only fire for watched files. Add one: gbb watch add ./HANDOFF.md');
-      return 0;
-    }
-
-    case "uninstall":
-      if (args[0] !== "claude") throw new Error("usage: gbb uninstall claude (for codex, remove the notify line from ~/.codex/config.toml)");
-      console.log(uninstallClaudeHook());
-      return 0;
-
-    case "hook": {
-      const source = args[0];
-      if (source !== "claude" && source !== "codex") throw new Error("usage: gbb hook claude|codex");
-      const input = source === "codex" ? (args[1] ?? "") : await readStdin();
-      handleHook(source, input);
-      return 0;
-    }
 
     case "bots": {
       const cfg = loadConfig();
@@ -470,14 +430,6 @@ async function main(argv: string[]): Promise<number> {
     case "_worker":
       await runWorker(args[0]);
       return 0;
-
-    case "_send": {
-      const file = args[0];
-      const payload = JSON.parse(fs.readFileSync(file, "utf8")) as Payload;
-      const r = await send(payload, { bot });
-      if (r.ok || r.skipped) fs.rmSync(file, { force: true });
-      return r.ok ? 0 : 1;
-    }
 
     default:
       throw new Error(`unknown command "${cmd}". Run: gbb help`);

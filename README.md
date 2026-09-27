@@ -4,14 +4,14 @@ Two-way bridge between **Grok Bot** and the coding agents on your computer (Clau
 
 - **Talk to any of your Bots from the terminal or from an agent.** `gbb ask Health "How did I sleep?"` prints Health's answer. Claude Code can do the same with the included skill ("ask my Growth bot what to prioritize").
 - **Your Bots → agents.** Grok Bot starts a local agent job (`gbb run claude "..."`), gets a job id right away, and is woken with the result when the job finishes. It can keep the conversation going in the same agent session (`gbb reply`).
-- **Agents → your Bot.** Agents ping your Bot through a webhook routine: job results, notes, and "handoffs" (new text appended to a shared notes file such as `HANDOFF.md`).
+- **Agents → your Bot.** Agents message your Bots through a webhook routine: job results and notes.
 
 ```
   Health   Growth   Investing ...          your other Bots
       ▲       ▲        ▲
       └───────┼────────┘  Bot-to-Bot messages (built into Grok Bot)
               │
-           Bridge  ◀── webhook routine: ask, note, job_done, handoff ──┐
+           Bridge  ◀── webhook routine: ask, note, job_done ──┐
               │                                                        │
               └── runs gbb on your computer: answer, run, reply ──▶  gbb  ──▶ Claude Code, Codex, CLIs
 ```
@@ -105,18 +105,6 @@ gbb notify "Deployed the pricing page, needs a copy review" --file ./pricing.md
 gbb ping
 ```
 
-### Handoff files
-
-Many people keep a shared notes file between an agent and a planning bot. gbb can watch it and send only the **newly appended** text whenever an agent session ends:
-
-```sh
-gbb watch add ~/code/app/HANDOFF.md
-gbb install claude   # Claude Code Stop hook
-gbb install codex    # Codex notify program
-```
-
-The hooks return instantly (sending happens in a detached process), survive `claude -p` exiting, skip sessions that `gbb run` is already reporting on, and never replay history.
-
 ## Payload
 
 Every webhook request is `POST` with `Authorization: Bearer <key>` and a JSON body:
@@ -138,7 +126,7 @@ Every webhook request is `POST` with `Authorization: Bearer <key>` and a JSON bo
 }
 ```
 
-Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_done`, `job_failed` (with `reply_to` when started with `--for`), `handoff`, `ping`. `text` is a human-readable version of the same data.
+Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_done`, `job_failed` (with `reply_to` when started with `--for`), `ping`. `text` is a human-readable version of the same data.
 
 ## Configuration
 
@@ -149,7 +137,6 @@ Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_
   "defaultBot": "growth",
   "allowedRoots": ["~/code"],
   "maxPerHour": 12,
-  "watch": ["/Users/me/code/app/HANDOFF.md"],
   "maxSummaryChars": 6000,
   "agents": {
     "claude": { "args": ["--permission-mode", "acceptEdits"] },
@@ -163,7 +150,6 @@ Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_
 | `hubBot` | The connected Bot that relays `ask`/`tell` to other Bots. Set by `gbb setup --hub`. |
 | `allowedRoots` | `gbb run` refuses working directories outside these roots. Unset means any directory. |
 | `maxPerHour` | Webhook sends allowed per bot per rolling hour. This guards against loops. |
-| `watch` | Files whose appended text is sent as `handoff`. Manage with `gbb watch`. |
 | `agents.<name>.args` | Extra args for built-in agents on every run. |
 | `agents.<name>.command` | Adds a custom agent. `{prompt}` is replaced by the task, otherwise the task goes to stdin. Custom agents can't be resumed. |
 

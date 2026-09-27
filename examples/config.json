@@ -2,7 +2,6 @@
   "defaultBot": "default",
   "allowedRoots": ["~/code"],
   "maxPerHour": 12,
-  "watch": [],
   "agents": {
     "claude": { "args": ["--permission-mode", "acceptEdits"] },
     "aider": { "command": ["aider", "--yes", "--message", "{prompt}"] }

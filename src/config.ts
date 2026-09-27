@@ -17,8 +17,6 @@ export interface Config {
   allowedRoots?: string[];
   /** Webhook sends allowed per bot per rolling hour (loop guard). */
   maxPerHour: number;
-  /** Files whose newly appended text is sent as a `handoff` event when an agent session stops. */
-  watch: string[];
   /** Per-agent overrides and custom agents. */
   agents: Record<string, AgentConfig>;
   /** Max characters of agent output included in a webhook payload. */
@@ -37,7 +35,6 @@ export interface Credentials {
 const DEFAULTS: Config = {
   defaultBot: "default",
   maxPerHour: 12,
-  watch: [],
   agents: {},
   maxSummaryChars: 6000,
 };

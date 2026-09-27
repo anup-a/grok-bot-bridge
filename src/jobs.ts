@@ -192,7 +192,6 @@ export async function runWorker(id: string): Promise<void> {
     const child = spawn(inv.command, inv.args, {
       cwd: job.cwd,
       stdio: ["pipe", out, err],
-      // GBB_JOB_ID lets `gbb hook` skip sessions this worker already reports on.
       env: { ...process.env, GBB_JOB_ID: id },
     });
     let timer: NodeJS.Timeout | undefined;
