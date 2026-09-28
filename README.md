@@ -29,29 +29,15 @@ One small CLI: `gbb`.
 
 **Ask any of your Bots from the terminal.** The answer prints right there.
 
-```console
-$ gbb ask Health "How did I sleep last night?"
-Asked Health via bridge (message mmulofiv416b5). Waiting up to 180s...
-Solid night. Recovery looks good, so keep today's plan as is.
-```
+<img src="docs/ask-any-bot.png" alt="gbb ask Health in a terminal, the question travels through Bridge to Health and the answer prints">
 
 **Let your Bots run Claude Code.** Tell a Bot what you want in chat. It starts the job on your computer, moves on, and reports back when the job finishes.
 
-```console
-$ gbb run claude "count the .ts files in src/" --cwd ~/code/app
-{"job_id": "jmulom5s97c63", "agent": "claude", "status": "queued", ...}
-```
-
-> **Bridge** (in Grok Bot): Claude job finished. 8 .ts files in src/: agents.ts, cli.ts, config.ts, ...
+<img src="docs/bots-run-claude.png" alt="Bridge chat starts a Claude job with gbb run claude, and posts the result when the job finishes">
 
 **Let Claude Code ask your Bots.** With the included skill, just say it:
 
-```console
-> ask my Growth bot what I should ship this week
-
-⏺ Bash(gbb ask Growth "What should I ship this week?")
-  ⎿ ...
-```
+<img src="docs/claude-asks-bots.png" alt="Claude Code runs gbb ask Growth and shows the answer">
 
 ## Quick start
 
@@ -84,42 +70,12 @@ Setup also installs the `grok-bots` skill for Claude Code, so it can talk to you
 
 You connect **one** dedicated Bot, **Bridge**. Grok Bot already lets Bots message each other, so Bridge can reach every other Bot you have. Nothing needs setting up per Bot.
 
-```mermaid
-flowchart LR
-  subgraph grok["Grok Bot"]
-    direction TB
-    H["Health"] <--> B(("Bridge"))
-    G["Growth"] <--> B
-    I["Investing ..."] <--> B
-  end
-  subgraph mac["Your computer"]
-    direction TB
-    CLI["gbb"] --> CC["Claude Code"]
-    CLI --> CX["Codex"]
-    CLI --> ANY["any CLI agent"]
-  end
-  CLI -- "webhook: ask, note, job_done" --> B
-  B -- "runs gbb: answer, run, reply" --> CLI
-```
+<p align="center"><img src="docs/how-it-works.png" width="640" alt="Your Bots connect to Bridge, Bridge talks to gbb on your computer, gbb runs Claude Code, Codex or any CLI"></p>
 
 - **Out:** `gbb` sends events to Bridge's webhook routine: a plain HTTPS `POST` with a bearer key.
 - **In:** Bridge reaches your computer through the Grok Bot app you already run, and runs `gbb` there. Your computer never needs to be reachable from the internet.
 
-A question from your terminal, step by step:
-
-```mermaid
-sequenceDiagram
-  participant You as You or Claude Code
-  participant gbb
-  participant Bridge
-  participant Health
-  You->>gbb: gbb ask Health "How did I sleep?"
-  gbb->>Bridge: webhook: ask (message id)
-  Bridge->>Health: Bot-to-Bot message
-  Health-->>Bridge: answer
-  Bridge->>gbb: gbb answer <id> (on your computer)
-  gbb-->>You: prints the answer
-```
+A question from your terminal: `gbb` sends it to Bridge, Bridge asks the Bot you named and runs `gbb answer` on your computer with the reply, and `gbb ask` prints it.
 
 A round trip usually takes 30 to 90 seconds. Most of that is the Bots thinking.
 
