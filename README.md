@@ -9,7 +9,7 @@ Your agents (and you) can ask any of your Bots a question from the terminal.<br>
 One small CLI: `gbb`.
 
 [![npm version](https://img.shields.io/npm/v/grok-bot-bridge?color=d97757&label=npm)](https://www.npmjs.com/package/grok-bot-bridge)
-[![npm downloads](https://img.shields.io/npm/dm/grok-bot-bridge?color=d97757)](https://www.npmjs.com/package/grok-bot-bridge)
+[![GitHub stars](https://img.shields.io/github/stars/anup-a/grok-bot-bridge?style=flat&color=d97757)](https://github.com/anup-a/grok-bot-bridge/stargazers)
 [![CI](https://github.com/anup-a/grok-bot-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/anup-a/grok-bot-bridge/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/github/license/anup-a/grok-bot-bridge?color=3ecf8e)](LICENSE)
 [![node >= 20](https://img.shields.io/node/v/grok-bot-bridge?color=3ecf8e)](https://nodejs.org)
