@@ -1,6 +1,6 @@
 {
   "name": "grok-bot-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Two-way bridge between Grok Bot and local coding agents (Claude Code, Codex, any CLI). Agents ping your bot through webhook routines; your bot runs agents in the background and gets the result back.",
   "type": "module",
   "bin": {
@@ -9,6 +9,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "examples",
     "README.md",
     "LICENSE"

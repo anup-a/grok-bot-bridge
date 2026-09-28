@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ensureDir, getCredentials, homeDir, loadConfig, readJson, withLock, writeJsonAtomic } from "./config.js";
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 export function buildPayload(event, summary, extra = {}, maxChars = loadConfig().maxSummaryChars) {
     let s = summary.trim();
     if (s.length > maxChars) {

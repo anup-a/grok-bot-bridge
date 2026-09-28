@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { ensureDir, getCredentials, homeDir, loadConfig, readJson, withLock, writeJsonAtomic } from "./config.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 export type EventName = "ping" | "note" | "ask" | "job_done" | "job_failed" | string;
 

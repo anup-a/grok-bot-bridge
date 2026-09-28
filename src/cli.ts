@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { knownAgents } from "./agents.js";
@@ -17,7 +18,7 @@ import {
 } from "./config.js";
 import { agentInstructions, bridgeBotPrompt, routinePrompt } from "./grok.js";
 import { cancelJob, getJob, isTerminal, jobDir, jobResult, listJobs, replyToJob, runWorker, startJob, waitForJob, type Job } from "./jobs.js";
-import { installClaudeSkill } from "./skill.js";
+import { OTHER_AGENTS_HINT, claudeSkillPath, hasClaudeCode, installClaudeSkill } from "./skill.js";
 import { answerMessage, listMessages, loadMessage, newMessage, waitForAnswer } from "./messages.js";
 import { buildPayload, send, VERSION } from "./webhook.js";
 
@@ -28,7 +29,7 @@ Setup
                                                   connect a Bot's webhook routine (prints the chat message to create it).
                                                   Connect Chief of Staff as the hub to reach all your Bots.
   gbb prompt [--bridge]                           print the setup message (--bridge: for a new dedicated Bridge Bot)
-  gbb install skill                               Claude Code skill: "ask my Health bot ..." just works
+  gbb install skill                               install/update the Claude Code skill (setup does this for you)
   gbb doctor                                      check config, credentials and agent CLIs
 
 Talk to any Bot (through your hub Bot, e.g. Chief of Staff)
@@ -210,11 +211,28 @@ async function setup(p: Parsed): Promise<number> {
     saveConfig(c);
     console.log(`"${bot}" is now the hub: gbb ask/tell reach your other Bots through it.`);
   }
-  if (p.flags["no-test"]) return 0;
-  const r = await send(buildPayload("ping", "grok-bot-bridge setup test. Reply PONG."), { bot, force: true });
-  if (r.ok) console.log(`Test ping delivered (${r.status}). Your Bot should reply PONG in its chat.`);
-  else console.error(`Test ping failed: ${r.skipped ?? `${r.status ?? ""} ${r.body ?? ""}`}`);
-  return r.ok ? 0 : 1;
+  let ok = true;
+  if (!p.flags["no-test"]) {
+    const r = await send(buildPayload("ping", "grok-bot-bridge setup test. Reply PONG."), { bot, force: true });
+    ok = r.ok;
+    if (r.ok) console.log(`Test ping delivered (${r.status}). Your Bot should reply PONG in its chat.`);
+    else console.error(`Test ping failed: ${r.skipped ?? `${r.status ?? ""} ${r.body ?? ""}`}`);
+  }
+  teachAgents(p);
+  if (ok && p.flags.hub) console.log(`\nTry it: gbb ask <any Bot> "a question"`);
+  return ok ? 0 : 1;
+}
+
+/** Make local agents aware of gbb: install the skill for Claude Code, point to skills.sh for others. */
+function teachAgents(p: Parsed): void {
+  if (p.flags["no-skill"]) return;
+  console.log("");
+  if (hasClaudeCode()) {
+    const had = fs.existsSync(claudeSkillPath());
+    installClaudeSkill();
+    console.log(`${had ? "Updated" : "Installed"} the grok-bots skill for Claude Code, so it knows how to talk to your Bots.`);
+  }
+  console.log(OTHER_AGENTS_HINT);
 }
 
 function doctor(): number {
@@ -429,7 +447,8 @@ async function main(argv: string[]): Promise<number> {
 
     case "install":
       if (args[0] !== "skill") throw new Error("usage: gbb install skill");
-      console.log(installClaudeSkill());
+      console.log(`Installed the grok-bots skill for Claude Code: ${installClaudeSkill()}`);
+      console.log(OTHER_AGENTS_HINT);
       return 0;
 
     case "bots": {

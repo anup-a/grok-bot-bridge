@@ -49,11 +49,16 @@ Or from a clone: `git clone https://github.com/anup-a/grok-bot-bridge && cd grok
 2. Open the routine's panel (click the "Created routine" chip in the chat) and copy the **Webhook URL** and **key**. Paste them into `gbb setup`.
 3. gbb sends a test ping.
 
+Setup also installs a `grok-bots` skill for Claude Code, so "ask my Health bot how I slept" works inside Claude Code. For other agents (Codex, Cursor, Gemini CLI and more), install the same skill with [skills](https://skills.sh):
+
+```sh
+npx skills add anup-a/grok-bot-bridge
+```
+
 Then try it:
 
 ```sh
 gbb ask Health "How did I sleep last night?"
-gbb install skill      # optional: lets Claude Code talk to your Bots too
 ```
 
 Non-interactive: `gbb setup --bot bridge --hub --url https://... --key ...`. To connect a Bot directly (its own routine, no hub), run `gbb setup --bot growth` and use `--bot growth`.
@@ -71,7 +76,7 @@ gbb tell Health "Logged a 30 minute walk"                        # one-way messa
 
 How it works: gbb sends an `ask` event to Bridge with a message id. Bridge asks the Bot named in `to`, then runs `gbb answer <id>` on your computer to deliver the reply, and `gbb ask` prints it. A round trip usually takes 30 to 90 seconds.
 
-**Claude Code:** `gbb install skill` adds a `grok-bots` skill, so "ask my Health bot how I slept" works inside Claude Code.
+**Agents:** the `grok-bots` skill ([skills/grok-bots/SKILL.md](skills/grok-bots/SKILL.md)) teaches an agent these commands. `gbb setup` installs it for Claude Code (`gbb install skill` re-installs it). Any other agent: `npx skills add anup-a/grok-bot-bridge`.
 
 ## Bot → agents
 
@@ -114,7 +119,7 @@ Every webhook request is `POST` with `Authorization: Bearer <key>` and a JSON bo
 ```json
 {
   "source": "grok-bot-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "event": "job_done",
   "agent": "claude",
   "job_id": "jmujpg0qjfc1d",
