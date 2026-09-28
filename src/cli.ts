@@ -139,6 +139,34 @@ function copyToClipboard(text: string): boolean {
   }
 }
 
+/** Read a line from the TTY without echoing it (for secrets). */
+function readHidden(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const stdin = process.stdin;
+    process.stdout.write(prompt);
+    stdin.setRawMode(true);
+    stdin.resume();
+    let value = "";
+    const done = (err?: Error) => {
+      stdin.setRawMode(false);
+      stdin.pause();
+      stdin.off("data", onData);
+      process.stdout.write("\n");
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const onData = (chunk: Buffer) => {
+      for (const ch of chunk.toString("utf8")) {
+        if (ch === "\r" || ch === "\n") return done();
+        if (ch === "\u0003") return done(new Error("cancelled"));
+        if (ch === "\u007f" || ch === "\b") value = value.slice(0, -1);
+        else if (ch >= " ") value += ch;
+      }
+    };
+    stdin.on("data", onData);
+  });
+}
+
 async function setup(p: Parsed): Promise<number> {
   const cfg = loadConfig();
   // First setup (or --hub) connects a dedicated Bridge Bot that relays to all your other Bots.
@@ -158,16 +186,18 @@ async function setup(p: Parsed): Promise<number> {
     console.log(prompt.replace(/^/gm, "  "));
     if (copyToClipboard(prompt)) console.log("\n(Copied to clipboard.)");
     console.log(
-      `\nStep 2. Open the new routine's panel in Grok Bot (click the "Created routine" chip) and copy the Webhook URL and key.\n`,
+      `\nStep 2. In Grok Bot, click the "Created routine" chip in that chat. At the bottom of the routine panel, under "Webhook",\n        click "POST to" to copy the URL and "key" to copy the key, and paste each one below.\n`,
     );
     if (!process.stdin.isTTY) {
       console.log(`Then run: gbb setup --bot ${bot}${bridgeMode ? " --hub" : ""} --url <webhook url> --key <webhook key>`);
       return 0;
     }
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    url ||= (await rl.question("Webhook URL: ")).trim();
-    key ||= (await rl.question("Webhook key: ")).trim();
-    rl.close();
+    if (!url) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      url = (await rl.question("Webhook URL: ")).trim();
+      rl.close();
+    }
+    key ||= (await readHidden("Webhook key (hidden): ")).trim();
   }
   if (!/^https:\/\//.test(url)) throw new Error("webhook URL must start with https://");
   if (!key) throw new Error("webhook key is empty");

@@ -168,6 +168,13 @@ Jobs live in `~/.grok-bot-bridge/jobs/<id>/` (`job.json`, `stdout.log`, `stderr.
 - **Loops.** The routine message tells the Bot not to start new jobs in reaction to results unless you asked. gbb also rate-limits sends. `GBB_SILENT=1` turns sending off entirely.
 - The routine message also tells the Bot never to post, email, DM, publish or spend from a routine run without asking you.
 
+## Troubleshooting
+
+- **Bridge says it can't run commands on your computer** ("temporarily unreachable", or it can't run `gbb version`): Bridge needs to use your computer, because it delivers answers by running `gbb answer`. Keep the Grok Bot desktop app open, check that **Execution on Local Computer** is on in Grok Bot's settings, and check your computer looks healthy under **Computers**. Right after a restart or an app update, give the app a minute, then ask Bridge to try again.
+- **`gbb ask` exits with code 2 ("No answer yet")**: the other Bot is slow or busy. The answer still lands later: `gbb inbox <message_id>`.
+- **"rate limit"**: gbb allows 12 webhook sends per Bot per hour by default (`maxPerHour` in the config). Job results count too.
+- **Nothing reaches the Bot**: run `gbb doctor`, then `gbb ping`, and check `~/.grok-bot-bridge/notify.log`.
+
 ## FAQ
 
 **Why a dedicated Bridge Bot?** A routine belongs to one Bot, and creating one means chatting with that Bot and copying a URL and key. With a hub you do that once. A dedicated Bot also keeps relay traffic out of your other chats and gives the bridge its own permissions. Chief of Staff can play the same role if you prefer.
