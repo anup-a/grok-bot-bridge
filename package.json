@@ -1,7 +1,6 @@
 {
   "name": "grok-bot-bridge",
   "version": "0.1.0",
-  "private": true,
   "description": "Two-way bridge between Grok Bot and local coding agents (Claude Code, Codex, any CLI). Agents ping your bot through webhook routines; your bot runs agents in the background and gets the result back.",
   "type": "module",
   "bin": {
@@ -17,7 +16,8 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && chmod +x dist/cli.js",
     "test": "npm run build && node --test test/",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "stress": "npm run build && node test/stress.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -32,13 +32,18 @@
     "bridge",
     "automation"
   ],
+  "author": "Anup Aglawe",
   "license": "MIT",
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "typescript": "^5.7.0"
-  },
+  "homepage": "https://github.com/anup-a/grok-bot-bridge#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/anup-a/grok-bot-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anup-a/grok-bot-bridge/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
   }
 }

@@ -5,7 +5,7 @@ import readline from "node:readline/promises";
 import { knownAgents } from "./agents.js";
 import { deleteCredentials, expandHome, getCredentials, homeDir, hubBot, listBots, loadConfig, rememberBot, saveConfig, setCredentials, } from "./config.js";
 import { agentInstructions, bridgeBotPrompt, routinePrompt } from "./grok.js";
-import { cancelJob, isTerminal, jobDir, listJobs, loadJob, replyToJob, runWorker, startJob, waitForJob } from "./jobs.js";
+import { cancelJob, getJob, isTerminal, jobDir, jobResult, listJobs, replyToJob, runWorker, startJob, waitForJob } from "./jobs.js";
 import { installClaudeSkill } from "./skill.js";
 import { answerMessage, listMessages, loadMessage, newMessage, waitForAnswer } from "./messages.js";
 import { buildPayload, send, VERSION } from "./webhook.js";
@@ -333,17 +333,17 @@ async function main(argv) {
         case "status":
             if (!args[0])
                 throw new Error("usage: gbb status JOB");
-            print(jobView(loadJob(args[0])));
+            print(jobView(getJob(args[0])));
             return 0;
         case "result": {
             if (!args[0])
                 throw new Error("usage: gbb result JOB");
-            const job = loadJob(args[0]);
+            const job = getJob(args[0]);
             if (!isTerminal(job)) {
                 console.error(`job ${job.id} is ${job.status}`);
                 return 2;
             }
-            console.log(job.result ?? "");
+            console.log(jobResult(job.id));
             return job.status === "done" ? 0 : 1;
         }
         case "wait": {

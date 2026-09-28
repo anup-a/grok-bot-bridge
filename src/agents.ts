@@ -115,7 +115,7 @@ export function custom(name: string, cfg: AgentConfig): Adapter {
       return { command: cmd[0], args: [...args, ...spec.extraArgs], stdin: usesArg ? undefined : spec.prompt };
     },
     parse(stdout, stderr, exitCode) {
-      return { result: tail(stdout) || tail(stderr), isError: exitCode !== 0 };
+      return { result: stdout.trim() || tail(stderr), isError: exitCode !== 0 };
     },
   };
 }

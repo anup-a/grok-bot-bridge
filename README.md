@@ -37,7 +37,7 @@ Grok Bot is good at planning, writing and follow-through. Local agents are good 
 ## Install
 
 ```sh
-npm install -g https://github.com/anup-a/grok-bot-bridge/tarball/main
+npm install -g grok-bot-bridge
 gbb setup
 ```
 
@@ -183,9 +183,10 @@ Jobs live in `~/.grok-bot-bridge/jobs/<id>/` (`job.json`, `stdout.log`, `stderr.
 ```sh
 npm install
 npm test        # builds, then runs node:test against a local fake webhook and fake agents
+npm run stress  # concurrency and failure modes: 30 parallel jobs/asks, rate-limit races, huge output, cancel, timeouts, dead workers, webhook errors
 ```
 
-`dist/` is committed so installing from the GitHub tarball works without a build step. Run `npm run build` and commit `dist/` with source changes.
+`dist/` is committed so installing straight from GitHub (`npm install -g https://github.com/anup-a/grok-bot-bridge/tarball/main`) works without a build step. Run `npm run build` and commit `dist/` with source changes.
 
 ## License
 

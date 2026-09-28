@@ -57,12 +57,20 @@ export function expandHome(p: string): string {
 const configPath = () => path.join(homeDir(), "config.json");
 
 export function loadConfig(): Config {
+  let text: string;
   try {
-    const raw = JSON.parse(fs.readFileSync(configPath(), "utf8"));
-    return { ...DEFAULTS, ...raw, agents: { ...DEFAULTS.agents, ...(raw.agents ?? {}) } };
+    text = fs.readFileSync(configPath(), "utf8");
   } catch {
-    return { ...DEFAULTS };
+    return { ...DEFAULTS }; // no config yet
   }
+  let raw: Partial<Config>;
+  try {
+    raw = JSON.parse(text);
+  } catch (e) {
+    // Never fall back to defaults here: that would silently drop settings like allowedRoots.
+    throw new Error(`invalid config at ${configPath()}: ${(e as Error).message}`);
+  }
+  return { ...DEFAULTS, ...raw, agents: { ...DEFAULTS.agents, ...(raw.agents ?? {}) } };
 }
 
 export function saveConfig(cfg: Config): void {
@@ -75,6 +83,32 @@ export function readJson<T>(file: string, fallback: T): T {
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch {
     return fallback;
+  }
+}
+
+/** Run fn while holding an exclusive lock file (cross-process). Stale locks (>10s) are broken. */
+export function withLock<T>(name: string, fn: () => T): T {
+  const lock = path.join(ensureDir(homeDir()), `${name}.lock`);
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    try {
+      fs.closeSync(fs.openSync(lock, "wx", 0o600));
+      break;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > 10_000) fs.rmSync(lock, { force: true });
+      } catch {
+        /* lock vanished between checks */
+      }
+      if (Date.now() > deadline) throw new Error(`timed out waiting for lock ${lock}`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10 + Math.random() * 20);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    fs.rmSync(lock, { force: true });
   }
 }
 

@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ensureDir, getCredentials, homeDir, loadConfig, readJson, writeJsonAtomic } from "./config.js";
+import { ensureDir, getCredentials, homeDir, loadConfig, readJson, withLock, writeJsonAtomic } from "./config.js";
 export const VERSION = "0.1.0";
 export function buildPayload(event, summary, extra = {}, maxChars = loadConfig().maxSummaryChars) {
     let s = summary.trim();
-    if (s.length > maxChars)
-        s = s.slice(0, maxChars) + "\n...[truncated]";
+    if (s.length > maxChars) {
+        // Keep the start and (mostly) the end: agents usually put the final answer last.
+        const head = Math.floor(maxChars / 3);
+        const tailLen = maxChars - head;
+        s = `${s.slice(0, head)}\n...[${s.length - maxChars} chars omitted]...\n${s.slice(-tailLen)}`;
+    }
     const base = {
         source: "grok-bot-bridge",
         version: VERSION,
@@ -31,6 +35,9 @@ export function log(msg) {
     fs.appendFileSync(logFile(), `${new Date().toISOString()} ${msg}\n`, { mode: 0o600 });
 }
 function takeRateSlot(bot, maxPerHour) {
+    return withLock("state", () => takeRateSlotUnlocked(bot, maxPerHour));
+}
+function takeRateSlotUnlocked(bot, maxPerHour) {
     ensureDir(homeDir());
     const state = readJson(stateFile(), {});
     const now = Date.now();
