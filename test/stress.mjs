@@ -274,5 +274,5 @@ await scenario("gbb list stays fast with 500 jobs on disk", async () => {
 server.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
-if (process.env.KEEP !== "1") fs.rmSync(tmp, { recursive: true, force: true });
+if (process.env.KEEP !== "1") fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // detached workers may still be finishing writes
 process.exit(failed.length ? 1 : 0);

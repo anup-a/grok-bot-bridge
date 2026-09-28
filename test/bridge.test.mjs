@@ -78,7 +78,7 @@ before(async () => {
 
 after(() => {
   server.close();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // detached workers may still be finishing writes
 });
 
 test("ping sends an authenticated event", async () => {
