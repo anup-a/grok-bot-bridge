@@ -1,147 +1,184 @@
+<div align="center">
+
 # grok-bot-bridge
 
-Two-way bridge between **Grok Bot** and the coding agents on your computer (Claude Code, Codex, or any CLI agent).
+**Grok Bot, meet Claude Code.**
 
-- **Talk to any of your Bots from the terminal or from an agent.** `gbb ask Health "How did I sleep?"` prints Health's answer. Claude Code can do the same with the included skill ("ask my Growth bot what to prioritize").
-- **Your Bots → agents.** Grok Bot starts a local agent job (`gbb run claude "..."`), gets a job id right away, and is woken with the result when the job finishes. It can keep the conversation going in the same agent session (`gbb reply`).
-- **Agents → your Bot.** Agents message your Bots through a webhook routine: job results and notes.
+Your Grok Bots can run Claude Code, Codex or any CLI agent on your computer and get the result back.<br>
+Your agents (and you) can ask any of your Bots a question from the terminal.<br>
+One small CLI: `gbb`.
 
+[![npm version](https://img.shields.io/npm/v/grok-bot-bridge?color=d97757&label=npm)](https://www.npmjs.com/package/grok-bot-bridge)
+[![npm downloads](https://img.shields.io/npm/dm/grok-bot-bridge?color=d97757)](https://www.npmjs.com/package/grok-bot-bridge)
+[![CI](https://github.com/anup-a/grok-bot-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/anup-a/grok-bot-bridge/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/github/license/anup-a/grok-bot-bridge?color=3ecf8e)](LICENSE)
+[![node >= 20](https://img.shields.io/node/v/grok-bot-bridge?color=3ecf8e)](https://nodejs.org)
+[![zero dependencies](https://img.shields.io/badge/dependencies-0-3ecf8e)](package.json)
+<br>
+[![works with Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
+[![works with Codex](https://img.shields.io/badge/works%20with-Codex-111111)](https://github.com/openai/codex)
+[![agent skill: grok-bots](https://img.shields.io/badge/agent%20skill-grok--bots-4a8cff)](skills/grok-bots/SKILL.md)
+
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Commands](#commands) · [Agent skill](#teach-your-agents) · [FAQ](#faq)
+
+<img src="docs/demo.gif" width="100%" alt="Demo: asking a Grok Bot from the terminal, a Grok Bot running a Claude Code job, and Claude Code asking a Grok Bot">
+
+</div>
+
+## What you can do
+
+**Ask any of your Bots from the terminal.** The answer prints right there.
+
+```console
+$ gbb ask Health "How did I sleep last night?"
+Asked Health via bridge (message mmulofiv416b5). Waiting up to 180s...
+Solid night. Recovery looks good, so keep today's plan as is.
 ```
-  Health   Growth   Investing ...          your other Bots
-      ▲       ▲        ▲
-      └───────┼────────┘  Bot-to-Bot messages (built into Grok Bot)
-              │
-           Bridge  ◀── webhook routine: ask, note, job_done ──┐
-              │                                                        │
-              └── runs gbb on your computer: answer, run, reply ──▶  gbb  ──▶ Claude Code, Codex, CLIs
+
+**Let your Bots run Claude Code.** Tell a Bot what you want in chat. It starts the job on your computer, moves on, and reports back when the job finishes.
+
+```console
+$ gbb run claude "count the .ts files in src/" --cwd ~/code/app
+{"job_id": "jmulom5s97c63", "agent": "claude", "status": "queued", ...}
 ```
 
-You connect **one** dedicated Bot, "Bridge", and every other Bot becomes reachable through it. Grok Bot already lets Bots message each other, and a Bot with computer access can run `gbb`. So Bridge relays in both directions, and nothing else needs setting up per Bot.
+> **Bridge** (in Grok Bot): Claude job finished. 8 .ts files in src/: agents.ts, cli.ts, config.ts, ...
 
-> Unofficial community project. Not affiliated with or endorsed by xAI, Anysphere, Anthropic or OpenAI.
+**Let Claude Code ask your Bots.** With the included skill, just say it:
 
-## Why
+```console
+> ask my Growth bot what I should ship this week
 
-Grok Bot is good at planning, writing and follow-through. Local agents are good at changing code. Without a bridge, the Bot has to babysit a shell command until it times out, and the agent has no way to say "done, here's what I shipped." With the bridge:
+⏺ Bash(gbb ask Growth "What should I ship this week?")
+  ⎿ ...
+```
 
-- Long agent jobs run in the background. They can't be killed by a command timeout, and the Bot hears back when they finish.
-- The Bot can have a real back-and-forth with the agent (same session, full context).
-- Agents can leave notes for the Bot. The Bot only bothers you when something needs you.
+## Quick start
 
-## Requirements
-
-- Node.js 20+
-- The Grok Bot desktop app, with a Bot that can use your computer (for the Bot → agent direction)
-- At least one agent CLI: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`), [Codex](https://github.com/openai/codex) (`codex`), or any CLI you configure
-
-## Install
+**1. Install** (Node.js 20+)
 
 ```sh
 npm install -g grok-bot-bridge
+```
+
+**2. Connect a Bridge Bot**
+
+```sh
 gbb setup
 ```
 
-Or from a clone: `git clone https://github.com/anup-a/grok-bot-bridge && cd grok-bot-bridge && npm install && npm link`.
+`gbb setup` prints a message and copies it to your clipboard. In the Grok Bot app, click **+**, then **Create new Bot**, and send it that message. The new Bot renames itself **Bridge**, creates a webhook routine, checks it can run `gbb` on your computer, and checks it can reach your other Bots. Then click the **Created routine** chip, copy the **Webhook URL** and **key** from the bottom of the panel, and paste them into `gbb setup`.
 
-`gbb setup` walks you through it:
-
-1. In Grok Bot, click **+**, then **Create new Bot**. Send the new Bot the message gbb prints (it's also copied to your clipboard on macOS). The Bot renames itself **Bridge**, creates a routine named **Local agent bridge** with a webhook trigger, checks it can run `gbb` on your computer, and checks it can reach another Bot.
-2. Open the routine's panel (click the "Created routine" chip in the chat) and copy the **Webhook URL** and **key**. Paste them into `gbb setup`.
-3. gbb sends a test ping.
-
-Setup also installs a `grok-bots` skill for Claude Code, so "ask my Health bot how I slept" works inside Claude Code. For other agents (Codex, Cursor, Gemini CLI and more), install the same skill with [skills](https://skills.sh):
+**3. Try it**
 
 ```sh
-npx skills add anup-a/grok-bot-bridge
+gbb ask <any Bot> "a question"
 ```
 
-Then try it:
+Setup also installs the `grok-bots` skill for Claude Code, so it can talk to your Bots too.
 
-```sh
-gbb ask Health "How did I sleep last night?"
+> [!NOTE]
+> Bridge needs to use your computer (Grok Bot's **Execution on Local Computer** setting), because it delivers answers and starts jobs by running `gbb`.
+
+## How it works
+
+You connect **one** dedicated Bot, **Bridge**. Grok Bot already lets Bots message each other, so Bridge can reach every other Bot you have. Nothing needs setting up per Bot.
+
+```mermaid
+flowchart LR
+  subgraph grok["Grok Bot"]
+    direction TB
+    H["Health"] <--> B(("Bridge"))
+    G["Growth"] <--> B
+    I["Investing ..."] <--> B
+  end
+  subgraph mac["Your computer"]
+    direction TB
+    CLI["gbb"] --> CC["Claude Code"]
+    CLI --> CX["Codex"]
+    CLI --> ANY["any CLI agent"]
+  end
+  CLI -- "webhook: ask, note, job_done" --> B
+  B -- "runs gbb: answer, run, reply" --> CLI
 ```
 
-Non-interactive: `gbb setup --bot bridge --hub --url https://... --key ...`. To connect a Bot directly (its own routine, no hub), run `gbb setup --bot growth` and use `--bot growth`.
+- **Out:** `gbb` sends events to Bridge's webhook routine: a plain HTTPS `POST` with a bearer key.
+- **In:** Bridge reaches your computer through the Grok Bot app you already run, and runs `gbb` there. Your computer never needs to be reachable from the internet.
 
-Credentials are stored in the macOS Keychain (service `grok-bot-bridge`). On other systems they go to `~/.grok-bot-bridge/credentials.json` with `0600` permissions. You can also use `GBB_WEBHOOK_URL` and `GBB_WEBHOOK_KEY`.
+A question from your terminal, step by step:
 
-## Talk to any Bot
-
-```sh
-gbb ask Growth "What's the one thing I should ship this week?"   # waits for the answer (default 180s)
-gbb ask Investing "Anything I need to act on today?" --wait 0    # don't wait; read it later
-gbb inbox                                                        # recent questions and answers
-gbb tell Health "Logged a 30 minute walk"                        # one-way message
+```mermaid
+sequenceDiagram
+  participant You as You or Claude Code
+  participant gbb
+  participant Bridge
+  participant Health
+  You->>gbb: gbb ask Health "How did I sleep?"
+  gbb->>Bridge: webhook: ask (message id)
+  Bridge->>Health: Bot-to-Bot message
+  Health-->>Bridge: answer
+  Bridge->>gbb: gbb answer <id> (on your computer)
+  gbb-->>You: prints the answer
 ```
 
-How it works: gbb sends an `ask` event to Bridge with a message id. Bridge asks the Bot named in `to`, then runs `gbb answer <id>` on your computer to deliver the reply, and `gbb ask` prints it. A round trip usually takes 30 to 90 seconds.
+A round trip usually takes 30 to 90 seconds. Most of that is the Bots thinking.
 
-**Agents:** the `grok-bots` skill ([skills/grok-bots/SKILL.md](skills/grok-bots/SKILL.md)) teaches an agent these commands. `gbb setup` installs it for Claude Code (`gbb install skill` re-installs it). Any other agent: `npx skills add anup-a/grok-bot-bridge`.
+## Commands
 
-## Bot → agents
+| Command | What it does |
+| --- | --- |
+| `gbb setup [--bot NAME] [--hub]` | Connect a Bot's webhook routine. The first run connects a new Bridge Bot as the hub. |
+| `gbb ask BOT "question" [--wait SEC]` | Ask any Bot and print the answer (waits up to 180s by default). |
+| `gbb tell BOT "message"` | Send a Bot a message, no answer expected. |
+| `gbb inbox [MESSAGE]` | Recent questions and answers. |
+| `gbb run AGENT "task" [--cwd DIR] [--for BOT]` | Start a background agent job (`claude`, `codex`, or a custom agent). Prints a job id right away and reports the result to the Bot when done. |
+| `gbb reply JOB "message"` | Continue that job's agent session, with full context. |
+| `gbb status JOB` · `result JOB` · `wait JOB` · `cancel JOB` · `list` | Manage jobs. |
+| `gbb notify "text"` · `gbb ping` | Send a note or a test event to the connected Bot. |
+| `gbb install skill` | Install or update the Claude Code skill. |
+| `gbb doctor` | Check credentials, agent CLIs and settings. |
+| `gbb prompt [--bridge]` · `gbb instructions` | Print the setup message, or the usage guide for a Bot. |
 
-Your Bot runs these on your computer:
-
-```sh
-gbb run claude "Fix the flaky login test and open a PR" --cwd ~/code/app
-# {"job_id": "jmujpg0qjfc1d", "agent": "claude", "status": "queued", ...}
-
-gbb reply jmujpg0qjfc1d "Also add a regression test"   # same agent session, full context
-gbb status jmujpg0qjfc1d                                # JSON status
-gbb result jmujpg0qjfc1d                                # the agent's final answer
-gbb wait jmujpg0qjfc1d --timeout 60                     # block if you really need to
-gbb cancel jmujpg0qjfc1d
-gbb list
-```
-
-When a job finishes, the Bot's routine fires with a `job_done` or `job_failed` event that carries the agent's final answer and the follow-up commands. Add `--for <Bot>` and Bridge forwards the result to that Bot.
-
-Pass extra flags to the agent after `--`:
+Pass extra flags straight to the agent after `--`:
 
 ```sh
 gbb run claude "Refactor utils" --cwd ~/code/app -- --permission-mode acceptEdits
 gbb run codex "Update the README" -- --sandbox workspace-write
 ```
 
-Headless agents use the permission settings you already have (`~/.claude/settings.json`, `~/.codex/config.toml`). Decide what a job may do without asking, and set per-agent defaults in the config (see below).
+Headless agents use the permission settings you already have (`~/.claude/settings.json`, `~/.codex/config.toml`), so decide what a job may do without asking.
 
-## Agents → Bot
+## Teach your agents
 
-```sh
-gbb notify "Deployed the pricing page, needs a copy review" --file ./pricing.md
-gbb ping
-```
+The [`grok-bots` skill](skills/grok-bots/SKILL.md) teaches an agent to use `gbb ask`, `tell` and `inbox`.
 
-## Payload
+| Agent | How |
+| --- | --- |
+| Claude Code | Installed by `gbb setup`. Re-install with `gbb install skill`. |
+| Codex, Cursor, Gemini CLI and [many more](https://skills.sh) | `npx skills add anup-a/grok-bot-bridge` |
 
-Every webhook request is `POST` with `Authorization: Bearer <key>` and a JSON body:
+Your Bots learn the `gbb` commands from the setup message, and Bots without computer access can ask Bridge to run them.
 
-```json
-{
-  "source": "grok-bot-bridge",
-  "version": "0.2.0",
-  "event": "job_done",
-  "agent": "claude",
-  "job_id": "jmujpg0qjfc1d",
-  "session_id": "f10fc107-...",
-  "cwd": "/Users/me/code/app",
-  "summary": "Fixed the flaky test by ...",
-  "next": ["gbb reply jmujpg0qjfc1d \"<follow-up message>\"", "gbb result jmujpg0qjfc1d"],
-  "text": "[grok-bot-bridge] job_done from claude (job jmujpg0qjfc1d) ...",
-  "host": "my-mac",
-  "ts": "2026-09-27T10:58:00.000Z"
-}
-```
+## Built to be safe and boring
 
-Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_done`, `job_failed` (with `reply_to` when started with `--for`), `ping`. `text` is a human-readable version of the same data.
+- **No lost work.** Jobs run in the background, detached from the Bot's command timeout, and a job whose worker dies is marked failed instead of hanging forever.
+- **No loops.** Bots are told never to start new jobs in reaction to results unless you asked. gbb also rate-limits sends (12 per Bot per hour by default), and `GBB_SILENT=1` turns sending off.
+- **No surprises.** Bots are told never to post, email, DM, publish or spend from a routine without asking you. `allowedRoots` limits which folders jobs can run in.
+- **Secrets stay secret.** Webhook keys live in the macOS Keychain (or a `0600` file elsewhere), are never logged, and are hidden while you paste them.
+- **Tested.** Unit tests run on Linux and macOS in CI. A stress suite (`npm run stress`) covers 30 parallel jobs and questions, rate-limit races, 5 MB outputs, cancel, timeouts, killed workers and webhook failures.
 
-## Configuration
+> [!WARNING]
+> Anyone with your webhook key can wake your Bot, and `gbb run` executes agents with your user's permissions. Treat the key like a password, and keep agent permission modes conservative.
+
+<details>
+<summary><b>Configuration</b></summary>
 
 `~/.grok-bot-bridge/config.json` (`gbb config` prints it):
 
 ```json
 {
-  "defaultBot": "growth",
+  "defaultBot": "bridge",
+  "hubBot": "bridge",
   "allowedRoots": ["~/code"],
   "maxPerHour": 12,
   "maxSummaryChars": 6000,
@@ -154,52 +191,79 @@ Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_
 
 | Key | Meaning |
 | --- | --- |
-| `hubBot` | The connected Bot that relays `ask`/`tell` to other Bots. Set by `gbb setup --hub`. |
+| `hubBot` | The connected Bot that relays `ask` and `tell` to other Bots. Set by `gbb setup --hub`. |
 | `allowedRoots` | `gbb run` refuses working directories outside these roots. Unset means any directory. |
-| `maxPerHour` | Webhook sends allowed per bot per rolling hour. This guards against loops. |
+| `maxPerHour` | Webhook sends allowed per Bot per rolling hour. |
 | `agents.<name>.args` | Extra args for built-in agents on every run. |
 | `agents.<name>.command` | Adds a custom agent. `{prompt}` is replaced by the task, otherwise the task goes to stdin. Custom agents can't be resumed. |
 
-Several bots: run `gbb setup --bot NAME` for each one, then use `--bot NAME` on any command.
+Connect more Bots directly with `gbb setup --bot NAME`, then use `--bot NAME` on any command.
 
-Environment: `GBB_HOME` (state directory), `GBB_SILENT=1` (send nothing), `GBB_NO_KEYCHAIN=1`.
+Environment: `GBB_HOME` (state directory), `GBB_SILENT=1` (send nothing), `GBB_NO_KEYCHAIN=1`, `GBB_WEBHOOK_URL` / `GBB_WEBHOOK_KEY`.
 
 Jobs live in `~/.grok-bot-bridge/jobs/<id>/` (`job.json`, `stdout.log`, `stderr.log`, `result.txt`). The send log is `~/.grok-bot-bridge/notify.log`.
 
-## Security
+</details>
 
-- **Anyone with the webhook key can wake your Bot.** Treat it like a password. gbb never writes it to logs.
-- **`gbb run` executes agents with your user's permissions.** It gives your Bot no access it didn't already have through computer use, but it makes agent runs easy. Set `allowedRoots` and keep agent permission modes conservative.
-- **Loops.** The routine message tells the Bot not to start new jobs in reaction to results unless you asked. gbb also rate-limits sends. `GBB_SILENT=1` turns sending off entirely.
-- The routine message also tells the Bot never to post, email, DM, publish or spend from a routine run without asking you.
+<details>
+<summary><b>Webhook payload</b></summary>
 
-## Troubleshooting
+Every request is a `POST` with `Authorization: Bearer <key>` and a JSON body:
 
-- **Bridge says it can't run commands on your computer** ("temporarily unreachable", or it can't run `gbb version`): Bridge needs to use your computer, because it delivers answers by running `gbb answer`. Keep the Grok Bot desktop app open, check that **Execution on Local Computer** is on in Grok Bot's settings, and check your computer looks healthy under **Computers**. Right after a restart or an app update, give the app a minute, then ask Bridge to try again.
+```json
+{
+  "source": "grok-bot-bridge",
+  "version": "0.2.0",
+  "event": "job_done",
+  "agent": "claude",
+  "job_id": "jmujpg0qjfc1d",
+  "session_id": "f10fc107-...",
+  "cwd": "/Users/me/code/app",
+  "summary": "Fixed the flaky test by ...",
+  "reply_to": "Growth",
+  "next": ["gbb reply jmujpg0qjfc1d \"<follow-up message>\"", "gbb result jmujpg0qjfc1d"],
+  "text": "[grok-bot-bridge] job_done from claude (job jmujpg0qjfc1d) ...",
+  "host": "my-mac",
+  "ts": "2026-09-27T10:58:00.000Z"
+}
+```
+
+Events: `ask` (with `to` and `message_id`), `note` (optionally with `to`), `job_done` and `job_failed` (with `reply_to` when started with `--for`), `ping`. `text` is a human-readable version of the same data, for routines that paste the body into a prompt.
+
+</details>
+
+<details>
+<summary><b>Troubleshooting</b></summary>
+
+- **Bridge can't run commands on your computer** ("temporarily unreachable", or `gbb version` fails): keep the Grok Bot desktop app open, check that **Execution on Local Computer** is on in its settings, and that your computer looks healthy under **Computers**. Right after a restart or an app update, give it a minute and ask Bridge to try again.
 - **`gbb ask` exits with code 2 ("No answer yet")**: the other Bot is slow or busy. The answer still lands later: `gbb inbox <message_id>`.
-- **"rate limit"**: gbb allows 12 webhook sends per Bot per hour by default (`maxPerHour` in the config). Job results count too.
+- **"rate limit"**: raise `maxPerHour` in the config. Job results count too.
 - **Nothing reaches the Bot**: run `gbb doctor`, then `gbb ping`, and check `~/.grok-bot-bridge/notify.log`.
+
+</details>
 
 ## FAQ
 
 **Why a dedicated Bridge Bot?** A routine belongs to one Bot, and creating one means chatting with that Bot and copying a URL and key. With a hub you do that once. A dedicated Bot also keeps relay traffic out of your other chats and gives the bridge its own permissions. Chief of Staff can play the same role if you prefer.
 
-**Why a CLI and not an MCP server?** Grok Bot runs local (stdio) MCP servers on its own cloud machine, not on your computer, so an MCP server there can't start your local agents. The Bot already reaches your computer through its computer-use tool, and the CLI works through that today.
+**Why a CLI and not an MCP server?** Grok Bot runs local (stdio) MCP servers on its own cloud machine, not on your computer, so an MCP server there can't start your local agents. Your Bot already reaches your computer through the Grok Bot app, and a CLI works through that today.
 
-**Does my computer need to be reachable from the internet?** No. Traffic out is a plain HTTPS POST to the webhook. Traffic in comes through the Grok Bot app you already run.
+**Does my computer need to be reachable from the internet?** No. Traffic out is a plain HTTPS `POST` to the webhook. Traffic in comes through the Grok Bot app you already run.
 
-**Can I use this without Grok Bot?** The agent side is just "POST JSON with a bearer token", so any webhook receiver works.
+**Can I use it without Grok Bot?** The sending side is just "POST JSON with a bearer token", so any webhook receiver works.
 
 ## Development
 
 ```sh
+git clone https://github.com/anup-a/grok-bot-bridge && cd grok-bot-bridge
 npm install
-npm test        # builds, then runs node:test against a local fake webhook and fake agents
-npm run stress  # concurrency and failure modes: 30 parallel jobs/asks, rate-limit races, huge output, cancel, timeouts, dead workers, webhook errors
+npm test        # build, then node:test against a local fake webhook and fake agents
+npm run stress  # concurrency and failure modes
+npm link        # use your checkout as the global gbb
 ```
 
-`dist/` is committed so installing straight from GitHub (`npm install -g https://github.com/anup-a/grok-bot-bridge/tarball/main`) works without a build step. Run `npm run build` and commit `dist/` with source changes.
+Zero runtime dependencies. `dist/` is committed so installing straight from GitHub works without a build step, so run `npm run build` and commit `dist/` with source changes (CI checks it).
 
 ## License
 
-MIT
+[MIT](LICENSE). Unofficial community project, not affiliated with or endorsed by xAI, Anysphere, Anthropic or OpenAI.
